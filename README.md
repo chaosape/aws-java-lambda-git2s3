@@ -2,10 +2,10 @@
 
 This is an experimental AWS Lambda component that will copy all files
 from a Github repository into a bucket whenever the input stream
-contains Github JSON push object. To use this function connect it to
-an AWS API Gateway, AWS S3 Bucket, and AWS CloudWatch Logs. Of course,
-to connect these other services appropriate permissions will need to
-be configured.
+contains a Github JSON push object. To use this function, connect it
+to an AWS API Gateway, AWS S3 Bucket, and AWS CloudWatch Logs. Of
+course, to connect these other services appropriate permissions will
+need to be configured.
 
 Running this Lambda code requires that four environment variables be
 specified:
