@@ -13,6 +13,12 @@ import java.io.File;
 
 import java.util.Map;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,6 +46,9 @@ import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.amazonaws.services.s3.transfer.MultipleFileUpload;
+
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.DecoderException;
 
 public class Git2S3
   implements RequestStreamHandler {
@@ -107,6 +116,7 @@ public class Git2S3
     log(logger, "Git2S3.handleRequest: entry.");
 
     // Invariant response fields.
+
     outgoingHeaderJson.put("Access-Control-Allow-Origin", "*");
     outgoingJsonNode.set("headers", outgoingHeaderJson);
     outgoingJsonNode.put("isBase64Encoded", false);
@@ -129,6 +139,44 @@ public class Git2S3
         String msg = "'body' key not found in root JSON request.";
         throw (new IllegalArgumentException(msg));
       }
+
+      // XXX: What follows will not work with proxy integration; since
+      // we do not receive the identical proxy that was sent, i.e.,
+      // the json request is put in a string and the formatting of the
+      // request is changed.
+      //if(getEnvVar("GITHUB_SECRET") != null) {
+      //  JsonNode signatureNode =
+      //    incomingJsonNode
+      //    .path("headers")
+      //    .path("X-Hub-Signature");
+      //
+      //  if(signatureNode.isMissingNode()) {
+      //    String msg = "Expected 'X-Hub-Signature' header.";
+      //    throw (new IllegalArgumentException(msg));
+      //  }
+      //
+      //  System.err.println(signatureNode.asText());
+      //  String signatureString = signatureNode.asText().substring(5);
+      //
+      //  SecretKeySpec key =
+      //    new SecretKeySpec(getEnvVar("GITHUB_SECRET").getBytes()
+      //                      , "HmacSHA1");
+      //  Mac hmac = Mac.getInstance("HmacSHA1");
+      //  hmac.init(key);
+      //  byte[] computedHash = hmac.doFinal(bodyNode.asText().getBytes());
+      //  byte[] signature =
+      //    Hex.decodeHex(signatureString
+      //                  .toCharArray());
+      //  if(!java.util.Arrays.equals(signature, computedHash)) {
+      //    String msg =
+      //      "Expected '"
+      //      +Hex.encodeHexString(computedHash)
+      //      +"' but received '"
+      //      +Hex.encodeHexString(signature);
+      //    throw (new IllegalArgumentException(msg));
+      //  }
+      //}
+
       incomingJsonNode = mapper.readTree(bodyNode.asText());
 
       // Get repository key.
@@ -143,9 +191,19 @@ public class Git2S3
       if(cloneURLNode == null) {
         String msg = "'clone_url' key not found in repository object.";
         throw (new IllegalArgumentException(msg));
-
       }
       String cloneURL = cloneURLNode.asText();
+
+      if(getEnvVar("CLONE_URL") != null
+         && !cloneURL.equals(getEnvVar("CLONE_URL"))) {
+        String msg =
+          "Expected 'clone_url' of "
+          + getEnvVar("CLONE_URL")
+          + " but received "
+          + cloneURL;
+        throw (new IllegalArgumentException(msg));
+      }
+
 
       log(logger, "Git2S3.handleRequest: clone_url is " + cloneURL);
 
@@ -227,6 +285,23 @@ public class Git2S3
 
 
       outgoingJsonNode.put("statusCode", 200);
+      // XXX: Unnecessary because Github secret validation cannot be
+      // done due to how AWS API Gateway proxy integration works.
+      //} catch (DecoderException e) {
+      //  e.printStackTrace(pw);
+      //  log(logger,
+      //      "Git2S3.handleRequest: Received DecoderException\n" + e.toString());
+      //  outgoingJsonNode.put("statusCode", 500);
+      //} catch (NoSuchAlgorithmException e) {
+      //  e.printStackTrace(pw);
+      //  log(logger,
+      //      "Git2S3.handleRequest: Received NoSuchAlgorithmException\n" + e.toString());
+      //  outgoingJsonNode.put("statusCode", 500);
+      //} catch (InvalidKeyException e) {
+      //  e.printStackTrace(pw);
+      //  log(logger,
+      //      "Git2S3.handleRequest: Received InvalidKeyException\n" + e.toString());
+      //  outgoingJsonNode.put("statusCode", 500);
     } catch(InterruptedException e) {
       e.printStackTrace(pw);
       log(logger,

@@ -6,6 +6,9 @@ import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 import java.util.Map;
 import java.util.HashMap;
 
@@ -21,23 +24,22 @@ public class Git2S3Test {
   @Before
   public void setUp() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    JsonNode rootNode = mapper.readTree(new File("test_environment.json"));
+
+    String content = new String (Files.readAllBytes(Paths.get("test_environment.json")));
+    JsonNode rootNode = mapper.readTree(content);
 
     env = new HashMap<String, String>();
 
     env.put("REGION", rootNode.get("region").asText());
     env.put("BUCKET", rootNode.get("bucket").asText());
-
-
+    env.put("GITHUB_TEST_REQUEST", rootNode.get("request").toString());
+    env.put("CLONE_URL", rootNode.get("clone_url").asText());
     env.put("TMP_REPO_DIR", "/tmp/repo");
   }
 
-
   @Test
   public void basicSuccessTest() {
-    String initialString =
-      "{\"body\":\"{\\\"repository\\\":{\\\"clone_url\\\":"
-      + "\\\"https://github.com/chaosape/aws-link-shortener.git\\\"}}\"}";
+    String initialString = env.get("GITHUB_TEST_REQUEST");
     InputStream inputStream = new ByteArrayInputStream(initialString.getBytes());
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     Git2S3 gp = new Git2S3(env);
@@ -71,7 +73,7 @@ public class Git2S3Test {
       String expected =
         "{"
         + "\"headers\":"
-          + "{\"Access-Control-Allow-Origin\":\"*\"},"
+        + "{\"Access-Control-Allow-Origin\":\"*\"},"
         + "\"isBase64Encoded\":false,"
         + "\"statusCode\":400"
         + "}";
@@ -79,5 +81,4 @@ public class Git2S3Test {
     } catch(Exception e) {
     }
   }
-
 }
