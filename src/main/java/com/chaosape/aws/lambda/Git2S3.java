@@ -40,6 +40,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.transfer.TransferManager;
@@ -222,14 +223,15 @@ public class Git2S3
       deleteDirectory(new File(getEnvVar("TMP_REPO_DIR") + "/.git"));
       log(logger, "Git2S3.handleRequest: clone complete. ");
 
-      // Try to load the testing profile.
-      AWSCredentialsProvider profileCredProvider =
-        new ProfileCredentialsProvider("git2s3test");
 
       AmazonS3 s3Client = null;
       TransferManager xfer_mgr = null;
-      if(profileCredProvider != null) {
+      if(context == null) {
         // Credentials could be read out of the profile configuration.
+        // Try to load the testing profile.
+        AWSCredentialsProvider profileCredProvider =
+          new ProfileCredentialsProvider("git2s3test");
+        log(logger, "Git2S3.handleRequest: using profile credentials. ");
         s3Client = AmazonS3ClientBuilder.standard()
           .withCredentials(profileCredProvider)
           .withRegion(getEnvVar("REGION"))
@@ -240,10 +242,14 @@ public class Git2S3
         // configuration. In this case, we assume we are running on
         // AWS and our credential have already been provided via a
         // role.
+        log(logger,
+            "Git2S3.handleRequest: using default AWS chain credentials.");
         s3Client = AmazonS3ClientBuilder.standard()
           .withRegion(getEnvVar("REGION"))
+          //.withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
           .build();
-        xfer_mgr = new TransferManager();
+        xfer_mgr = new TransferManager(/*DefaultAWSCredentialsProviderChain
+                                         .getInstance()*/);
       }
 
       log(logger, "Git2S3.handleRequest: S3 API initiated. ");
